@@ -132,10 +132,16 @@ $medicoDisponibilidadActual = $datosMedico['disponibilidad'] ?? 'Ambos';
             </div>
             <hr class="my-3">
             
-            <div class="mb-3">
-                <label for="pass" class="form-label">Nueva Contraseña:</label>
-                <input type="password" class="form-control" id="pass" name="pass">
-                <small class="text-muted">Dejar en blanco si no deseas cambiar la contraseña.</small>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="pass" class="form-label">Nueva Contraseña:</label>
+                    <input type="password" class="form-control" id="pass" name="pass">
+                    <small class="text-muted">Dejar en blanco si no deseas cambiar la contraseña.</small>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="pass_confirm" class="form-label">Confirmar Nueva Contraseña:</label>
+                    <input type="password" class="form-control" id="pass_confirm" name="pass_confirm">
+                </div>
             </div>
             
             <div class="d-grid">

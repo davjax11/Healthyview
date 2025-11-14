@@ -80,6 +80,14 @@
                             <i class="bi bi-house-fill me-2"></i> Inicio
                         </a>
                     </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link <?php echo ($activePage == 'foro') ? 'active' : ''; ?>" href="index.php?action=verForo">
+                            <i class="bi bi-chat-dots-fill me-2"></i>
+                            Foro
+                        </a>
+                    </li>
+                    
                     <li class="nav-item">
                         <a class="nav-link <?php echo ($activePage == 'actividades') ? 'active' : ''; ?>" href="index.php?action=verActividades">
                             <i class="bi bi-person-walking me-2"></i> Actividades de salud

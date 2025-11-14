@@ -74,6 +74,13 @@
                     </li>
 
                     <li class="nav-item">
+                        <a class="nav-link <?php echo ($activePage == 'reportes') ? 'active' : ''; ?>" href="index.php?action=manageReportes">
+                            <i class="bi bi-graph-up me-2"></i>
+                            Reportes
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
                         <a class="nav-link <?php echo ($activePage == 'backups') ? 'active' : ''; ?>" href="index.php?action=manageBackups">
                             <i class="bi bi-database-fill-gear me-2"></i>
                             Respaldo y BD

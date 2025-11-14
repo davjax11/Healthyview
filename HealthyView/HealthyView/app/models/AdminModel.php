@@ -412,7 +412,190 @@ class AdminModel {
             return false;
         }
     }
-    // --- FIN DE NUEVAS FUNCIONES ---
+    
+    // --- FUNCIONES CRUD DE ADMINISTRADORES (ADMIN) ---
 
+    /**
+     * Obtiene TODOS los administradores (para el panel de Admin)
+     */
+    public function getAdminsParaAdmin() {
+        $sql = "SELECT idAdmin, nombre, apellidoPaterno, correo, departamento, estado 
+                FROM administrador
+                ORDER BY apellidoPaterno ASC, nombre ASC";
+        $result = $this->connection->query($sql);
+        return $result->fetch_all(MYSQLI_ASSOC);
+    }
+
+    /**
+     * Registra un nuevo ADMINISTRADOR en la base de datos
+     */
+    public function registrarAdmin($nombre, $apellidoPaterno, $apellidoMaterno, $correo, $pass_hash, $departamento) {
+        $sql = "INSERT INTO administrador (nombre, apellidoPaterno, apellidoMaterno, correo, passwordHash, departamento) 
+                VALUES (?, ?, ?, ?, ?, ?)";
+
+        try {
+            $statement = $this->connection->prepare($sql);
+            // s = string (6 veces)
+            $statement->bind_param("ssssss", $nombre, $apellidoPaterno, $apellidoMaterno, $correo, $pass_hash, $departamento);
+            $exito = $statement->execute();
+            $statement->close();
+            return $exito;
+        } catch (mysqli_sql_exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Obtiene los datos de un admin específico para editarlo.
+     */
+    public function getAdminEspecifico($idAdmin) {
+        $sql = "SELECT idAdmin, nombre, apellidoPaterno, apellidoMaterno, correo, 
+                       departamento, estado 
+                FROM administrador 
+                WHERE idAdmin = ? 
+                LIMIT 1";
+        
+        try {
+            $statement = $this->connection->prepare($sql);
+            $statement->bind_param("i", $idAdmin);
+            $statement->execute();
+            $result = $statement->get_result();
+            $statement->close();
+            return $result->fetch_assoc();
+        } catch (mysqli_sql_exception $e) {
+            return null;
+        }
+    }
+    
+    /**
+     * Actualiza los datos de un administrador específico.
+     */
+    public function updateDatosAdmin($idAdmin, $nombre, $apellidoPaterno, $apellidoMaterno, $correo, $departamento, $estado, $password) {
+        
+        try {
+            // Si el campo de contraseña no está vacío, actualizamos el hash
+            if (!empty($password)) {
+                $pass_hash = password_hash($password, PASSWORD_BCRYPT);
+                $sql = "UPDATE administrador SET 
+                            nombre = ?, 
+                            apellidoPaterno = ?, 
+                            apellidoMaterno = ?, 
+                            correo = ?, 
+                            departamento = ?, 
+                            estado = ?,
+                            passwordHash = ? 
+                        WHERE idAdmin = ?";
+                $statement = $this->connection->prepare($sql);
+                $statement->bind_param("sssssisi", $nombre, $apellidoPaterno, $apellidoMaterno, $correo, $departamento, $estado, $pass_hash, $idAdmin);
+            } else {
+                // Si la contraseña está vacía, no la actualizamos
+                $sql = "UPDATE administrador SET 
+                            nombre = ?, 
+                            apellidoPaterno = ?, 
+                            apellidoMaterno = ?, 
+                            correo = ?, 
+                            departamento = ?, 
+                            estado = ?
+                        WHERE idAdmin = ?";
+                $statement = $this->connection->prepare($sql);
+                $statement->bind_param("sssssii", $nombre, $apellidoPaterno, $apellidoMaterno, $correo, $departamento, $estado, $idAdmin);
+            }
+            
+            $exito = $statement->execute();
+            $statement->close();
+            return $exito;
+            
+        } catch (mysqli_sql_exception $e) {
+            return false;
+        }
+    }
+    
+    /**
+     * Cambia el estado de un administrador (Activo/Inactivo).
+     */
+    public function actualizarEstadoAdmin($idAdmin, $nuevoEstado) {
+        // Nos aseguramos que el ID 1 (Admin Principal) no pueda ser desactivado
+        if ($idAdmin == 1) {
+            return false;
+        }
+        
+        $estadoValidado = ($nuevoEstado == 1) ? 1 : 0;
+        $sql = "UPDATE administrador SET estado = ? WHERE idAdmin = ?";
+        
+        try {
+            $statement = $this->connection->prepare($sql);
+            $statement->bind_param("ii", $estadoValidado, $idAdmin);
+            $exito = $statement->execute();
+            $statement->close();
+            return $exito;
+        } catch (mysqli_sql_exception $e) {
+            return false;
+        }
+    }
+
+
+    // --- FUNCIONES DE REPORTES (RFN-12) ---
+
+    /**
+     * Reporte: Conteo de pacientes por género.
+     */
+    public function getReportePacientesPorGenero() {
+        $sql = "SELECT genero, COUNT(idPaciente) as total 
+                FROM paciente 
+                GROUP BY genero 
+                ORDER BY total DESC";
+        $result = $this->connection->query($sql);
+        return $result->fetch_all(MYSQLI_ASSOC);
+    }
+
+    /**
+     * Reporte: Conteo de citas por médico.
+     */
+    public function getReporteCitasPorMedico() {
+        $sql = "SELECT 
+                    CONCAT(m.nombre, ' ', m.apellidoPaterno) as medicoNombre, 
+                    m.especialidad,
+                    COUNT(c.idCita) as totalCitas
+                FROM cita c
+                JOIN medico m ON c.idMedico = m.idMedico
+                GROUP BY c.idMedico
+                ORDER BY totalCitas DESC";
+        $result = $this->connection->query($sql);
+        return $result->fetch_all(MYSQLI_ASSOC);
+    }
+
+    /**
+     * Reporte: Conteo de actividades asignadas (por tipo de actividad).
+     */
+    public function getReporteActividadesAsignadas() {
+        $sql = "SELECT 
+                    a.nombre as actividadNombre,
+                    a.tipo,
+                    COUNT(ap.idAsignacion) as totalAsignaciones
+                FROM actividadPaciente ap
+                JOIN actividad a ON ap.idActividad = a.idActividad
+                GROUP BY ap.idActividad
+                ORDER BY totalAsignaciones DESC";
+        $result = $this->connection->query($sql);
+        return $result->fetch_all(MYSQLI_ASSOC);
+    }
+
+    /**
+     * Reporte: Ranking de participación de pacientes (basado en actividades completadas).
+     */
+    public function getReporteRankingPacientes() {
+        $sql = "SELECT 
+                    CONCAT(p.nombre, ' ', p.apellidoPaterno) as pacienteNombre,
+                    p.correo,
+                    COUNT(ap.idAsignacion) as totalCompletadas
+                FROM actividadPaciente ap
+                JOIN paciente p ON ap.idPaciente = p.idPaciente
+                WHERE ap.estado = 'Completada'
+                GROUP BY ap.idPaciente
+                ORDER BY totalCompletadas DESC
+                LIMIT 10"; // Mostramos el Top 10
+        $result = $this->connection->query($sql);
+        return $result->fetch_all(MYSQLI_ASSOC);
+    }
 }
 ?>

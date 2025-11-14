@@ -66,11 +66,23 @@ class PacienteController {
     }
     
     
-    // Marcador de posición para Seguimientos
+    /**
+     * Muestra la página de historial de seguimientos del paciente
+     */
     public function verSeguimientos() {
+        $idPaciente = $_SESSION['usuario_id'];
+        
+        // 1. Obtener los datos del modelo
+        $historialSeguimiento = $this->model->getSeguimientosPaciente($idPaciente);
+        
+        // 2. Definir variables para la plantilla
         $activePage = 'seguimientos';
-        $viewToLoad = 'app/views/paciente/view_paciente_placeholder.php';
-        $tituloVista = "Seguimientos";
+        $pageTitle = "Mis Seguimientos"; // Título para la pestaña del navegador
+        
+        // 3. Cargar la vista real, que será inyectada en el layout
+        $viewToLoad = 'app/views/paciente/view_paciente_seguimientos.php'; 
+        
+        // 4. Cargar la plantilla principal
         include_once 'app/views/paciente/layout_paciente.php';
     }
     
@@ -406,5 +418,103 @@ class PacienteController {
         echo json_encode(['ocupadas' => [], 'disponibilidad' => 'Ambos']);
         exit();
     }
+
+    // --- ACCIONES DE FORO (RFN-13) ---
+
+    /**
+     * Muestra el foro y gestiona la creación de nuevas publicaciones.
+     */
+    /**
+     * Muestra el foro y gestiona la creación de nuevas publicaciones (con imágenes).
+     */
+    public function verForo() {
+        $idPaciente = $_SESSION['usuario_id'];
+        $successMessage = null;
+        $errorMessage = null;
+
+        // 1. Verificar si se está enviando una nueva publicación
+        if (isset($_POST["publicarMensaje"])) {
+            $titulo = trim($_POST['titulo']);
+            $contenido = trim($_POST['contenido']);
+            $imagenURL = null; // Default: no hay imagen
+
+            // --- Lógica de Subida de Imagen ---
+            if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] == 0) {
+                $uploadDir = 'public/uploads/foro/';
+                $allowedTypes = ['image/jpeg', 'image/png'];
+                $maxSize = 2 * 1024 * 1024; // 2 MB
+
+                $fileType = mime_content_type($_FILES['imagen']['tmp_name']);
+                
+                if (!in_array($fileType, $allowedTypes)) {
+                    $errorMessage = "Error: Solo se permiten archivos JPG o PNG.";
+                } elseif ($_FILES['imagen']['size'] > $maxSize) {
+                    $errorMessage = "Error: El archivo es demasiado grande (Máx 2MB).";
+                } else {
+                    // Crear un nombre de archivo único
+                    $extension = pathinfo($_FILES['imagen']['name'], PATHINFO_EXTENSION);
+                    $fileName = uniqid('img_', true) . '.' . $extension;
+                    $uploadPath = $uploadDir . $fileName;
+
+                    if (move_uploaded_file($_FILES['imagen']['tmp_name'], $uploadPath)) {
+                        $imagenURL = $uploadPath; // Ruta que se guardará en la BD
+                    } else {
+                        $errorMessage = "Error al mover el archivo subido.";
+                    }
+                }
+            }
+            // --- Fin de Lógica de Imagen ---
+
+            if (empty($contenido)) {
+                $errorMessage = "Error: El contenido del mensaje no puede estar vacío.";
+            }
+
+            // Si no hubo errores en la subida de imagen O no se subió imagen
+            if ($errorMessage === null) {
+                $exito = $this->model->insertarPublicacionForo($idPaciente, $titulo, $contenido, $imagenURL);
+                if ($exito) {
+                    header("Location: index.php?action=verForo&success=publicado");
+                    exit();
+                } else {
+                    $errorMessage = "Error: No se pudo registrar tu publicación. Inténtalo de nuevo.";
+                }
+            }
+        }
+
+        // 2. Manejar mensajes de éxito
+        if (isset($_GET['success']) && $_GET['success'] == 'publicado') {
+            $successMessage = "¡Tu mensaje ha sido publicado en el foro!";
+        }
+
+        // 3. Obtener todas las publicaciones (modificaremos esto en el siguiente paso)
+        $listaPublicaciones = $this->model->getPublicacionesForo($idPaciente);
+
+        // 4. Cargar la vista
+        $pageTitle = "Foro Motivacional";
+        $activePage = 'foro';
+        $viewToLoad = 'app/views/paciente/view_foro.php';
+        
+        include_once 'app/views/paciente/layout_paciente.php';
+    }
+
+    /**
+     * Procesa una reacción (like/unlike) a una publicación del foro.
+     */
+    public function reaccionarForo() {
+        if (!isset($_GET['idPublicacion'])) {
+            header("Location: index.php?action=verForo");
+            exit();
+        }
+        
+        $idPublicacion = (int)$_GET['idPublicacion'];
+        $idPaciente = (int)$_SESSION['usuario_id'];
+
+        $this->model->alternarReaccion($idPublicacion, $idPaciente);
+
+        // Redirigir de vuelta al foro
+        header("Location: index.php?action=verForo");
+        exit();
+    }
+    
 }
 ?>

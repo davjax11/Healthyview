@@ -436,6 +436,121 @@ class PacienteModel {
         }
     }
     // --- FIN DE NUEVAS FUNCIONES ---
+
+    /**
+     * Obtiene el historial de seguimientos de un paciente específico.
+     * @return array
+     */
+    public function getSeguimientosPaciente($idPaciente) {
+        $sql = "SELECT
+                    s.fechaRegistro,
+                    s.peso,
+                    s.imc,
+                    s.nivelBienestar,
+                    s.observaciones,
+                    CONCAT(m.nombre, ' ', m.apellidoPaterno) as medicoNombre
+                FROM seguimiento s
+                LEFT JOIN medico m ON s.idMedico = m.idMedico
+                WHERE s.idPaciente = ?
+                ORDER BY s.fechaRegistro DESC";
+
+        try {
+            $statement = $this->connection->prepare($sql);
+            $statement->bind_param("i", $idPaciente);
+            $statement->execute();
+            $result = $statement->get_result();
+            $statement->close();
+            return $result->fetch_all(MYSQLI_ASSOC);
+        } catch (mysqli_sql_exception $e) {
+            return [];
+        }
+    }
     
+    // --- FUNCIONES DE FORO (RFN-13) ---
+
+    /**
+     * Obtiene todas las publicaciones del foro, uniendo el nombre del paciente,
+     * el conteo de reacciones y si el usuario actual ya reaccionó.
+     */
+    public function getPublicacionesForo($idPaciente) {
+        // Este es el ID del paciente que está VIENDO la página
+        $idUsuarioActual = $idPaciente; 
+        
+        $sql = "SELECT 
+                    f.idPublicacion,
+                    f.titulo,
+                    f.contenido,
+                    f.imagenURL,
+                    f.fechaPublicacion,
+                    CONCAT(p.nombre, ' ', p.apellidoPaterno) as pacienteNombre,
+                    
+                    -- Contar el total de reacciones
+                    (SELECT COUNT(*) FROM foroReaccion fr WHERE fr.idPublicacion = f.idPublicacion) as totalReacciones,
+                    
+                    -- Verificar si el usuario actual ya reaccionó (1 si sí, 0 si no)
+                    (SELECT COUNT(*) FROM foroReaccion fr 
+                     WHERE fr.idPublicacion = f.idPublicacion AND fr.idPaciente = ?) as usuarioYaReacciono
+                    
+                FROM foro f
+                LEFT JOIN paciente p ON f.idPaciente = p.idPaciente
+                ORDER BY f.fechaPublicacion DESC
+                LIMIT 50"; // Limitamos a las 50 más recientes
+
+        try {
+            $statement = $this->connection->prepare($sql);
+            $statement->bind_param("i", $idUsuarioActual);
+            $statement->execute();
+            $result = $statement->get_result();
+            $statement->close();
+            return $result->fetch_all(MYSQLI_ASSOC);
+        } catch (mysqli_sql_exception $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Inserta una nueva publicación en el foro (con imagen opcional).
+     */
+    public function insertarPublicacionForo($idPaciente, $titulo, $contenido, $imagenURL) {
+        $sql = "INSERT INTO foro (idPaciente, titulo, contenido, imagenURL) VALUES (?, ?, ?, ?)";
+        
+        try {
+            $statement = $this->connection->prepare($sql);
+            // El último parámetro (imagenURL) puede ser null
+            $statement->bind_param("isss", $idPaciente, $titulo, $contenido, $imagenURL);
+            $exito = $statement->execute();
+            $statement->close();
+            return $exito;
+        } catch (mysqli_sql_exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Añade o quita una reacción (like) de una publicación.
+     */
+    public function alternarReaccion($idPublicacion, $idPaciente) {
+        // 1. Intentar borrar primero (si ya le dio like)
+        $sql_delete = "DELETE FROM foroReaccion WHERE idPublicacion = ? AND idPaciente = ?";
+        try {
+            $statement = $this->connection->prepare($sql_delete);
+            $statement->bind_param("ii", $idPublicacion, $idPaciente);
+            $statement->execute();
+            $filasAfectadas = $statement->affected_rows;
+            $statement->close();
+
+            // 2. Si no se borró nada (no le había dado like), lo inserta
+            if ($filasAfectadas == 0) {
+                $sql_insert = "INSERT INTO foroReaccion (idPublicacion, idPaciente) VALUES (?, ?)";
+                $statement_insert = $this->connection->prepare($sql_insert);
+                $statement_insert->bind_param("ii", $idPublicacion, $idPaciente);
+                $statement_insert->execute();
+                $statement_insert->close();
+            }
+            return true;
+        } catch (mysqli_sql_exception $e) {
+            return false;
+        }
+    }
 }
 ?>

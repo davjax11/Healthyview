@@ -145,9 +145,16 @@ class AdminController {
             $cedula = trim($_POST['cedulaProfesional']);
             $estado = (int)$_POST['estado']; // 1 o 0
             $password = trim($_POST['pass']);
+            $pass_confirm = trim($_POST['pass_confirm']);
             $telefono = trim($_POST['telefono']); // NUEVO
             $disponibilidad = trim($_POST['disponibilidad']); // NUEVO
             
+            if (!empty($password) && $password != $pass_confirm) {
+                // Redirigir de vuelta con un error
+                header("Location: index.php?action=showEditarMedico&idMedico=$idMedico&error=pass_no_coinciden");
+                exit();
+            }
+
             // Validar que el nuevo correo no exista (si es diferente al actual)
             $datosActuales = $this->model->getMedicoEspecifico($idMedico);
             
@@ -215,7 +222,8 @@ class AdminController {
              $errorMap = [
                 'no_encontrado' => 'Error: El paciente no fue encontrado.',
                 'actualizar_estado_fallo' => 'Error al actualizar el estado del paciente.',
-                'correo_existe' => 'Error: El correo electrónico ya está en uso por otro usuario.'
+                'correo_existe' => 'Error: El correo electrónico ya está en uso por otro usuario.',
+                'pass_no_coinciden' => 'Error: Las contraseñas no coinciden.' // <-- AÑADIR
              ];
              $error = $errorMap[$_GET['error']] ?? 'No se pudo completar la operación.';
         }
@@ -269,7 +277,14 @@ class AdminController {
             $diagnostico = trim($_POST['diagnostico']);
             $estado = (int)$_POST['estado'];
             $password = trim($_POST['pass']);
-            
+            $pass_confirm = trim($_POST['pass_confirm']); 
+
+            if (!empty($password) && $password != $pass_confirm) {
+                // Redirigir de vuelta con un error
+                header("Location: index.php?action=showEditarPaciente&idPaciente=$idPaciente&error=pass_no_coinciden");
+                exit();
+            }
+
             $datosActuales = $this->model->getPacienteEspecifico($idPaciente);
             
             if ($correo != $datosActuales['correo'] && $this->authModel->verificarCorreoExistente($correo)) {
@@ -511,7 +526,191 @@ class AdminController {
         header("Location: index.php?action=manageBackups&error=archivo_no_encontrado");
         exit();
     }
-    // --- FIN DE NUEVAS ACCIONES ---
+    
+    /**
+     * Muestra la página para gestionar administradores (Crear y Leer)
+     */
+    public function manageAdmins() {
+        $error = null;
+        $success = null;
+        
+        // Mensajes de éxito/error de otras acciones (redirección)
+        if (isset($_GET['success'])) {
+            $successMap = [
+                'admin_actualizado' => 'Administrador actualizado exitosamente.',
+                'admin_desactivado' => 'Administrador desactivado exitosamente.',
+                'admin_activado' => 'Administrador activado exitosamente.'
+            ];
+            $success = $successMap[$_GET['success']] ?? 'Operación exitosa.';
+        }
+        if (isset($_GET['error'])) {
+             $errorMap = [
+                'no_encontrado' => 'Error: El administrador no fue encontrado.',
+                'actualizar_estado_fallo' => 'Error al actualizar el estado del administrador.',
+                'correo_existe' => 'Error: El correo electrónico ya está en uso por otro usuario.',
+                'pass_no_coinciden' => 'Error: Las contraseñas no coinciden.'
+             ];
+             $error = $errorMap[$_GET['error']] ?? 'No se pudo completar la operación.';
+        }
+
+        // Lógica para registrar un nuevo admin (Formulario de CREAR)
+        if (isset($_POST["registrarAdmin"])) {
+            $nombre = trim($_POST["nombre"]);
+            $apellidoPaterno = trim($_POST["apellidoPaterno"]);
+            $apellidoMaterno = trim($_POST["apellidoMaterno"]);
+            $correo = trim($_POST["correo"]);
+            $pass = trim($_POST["pass"]);
+            $pass_confirm = trim($_POST["pass_confirm"]);
+            $departamento = trim($_POST["departamento"]);
+
+            // Validaciones
+            if ($pass !== $pass_confirm) {
+                $error = "Las contraseñas no coinciden.";
+            }
+            // Usamos el AuthModel para la validación cruzada
+            else if ($this->authModel->verificarCorreoExistente($correo)) {
+                $error = "El correo electrónico ya está registrado.";
+            } else {
+                $pass_hash = password_hash($pass, PASSWORD_BCRYPT);
+                // Usamos el AdminModel para registrar
+                $exito = $this->model->registrarAdmin($nombre, $apellidoPaterno, $apellidoMaterno, $correo, $pass_hash, $departamento);
+                if ($exito) {
+                    $success = "Administrador registrado exitosamente.";
+                } else {
+                    $error = "Error al registrar al administrador.";
+                }
+            }
+        }
+        
+        // Obtener la lista de TODOS los admins (Leer)
+        $listaAdmins = $this->model->getAdminsParaAdmin();
+        
+        // Cargar la Plantilla
+        $pageTitle = "Gestionar Administradores";
+        $activePage = 'admins';
+        $viewToLoad = 'app/views/admin/manage_admins.php';
+        
+        include_once 'app/views/admin/layout_admin.php';
+    }
+    
+    /**
+     * Muestra el formulario para editar un admin existente
+     */
+    public function showEditarAdmin() {
+        if (!isset($_GET['idAdmin'])) {
+            header("Location: index.php?action=manageAdmins");
+            exit();
+        }
+        
+        $idAdmin = (int)$_GET['idAdmin'];
+        
+        // No se puede editar al admin principal (ID 1)
+        if ($idAdmin == 1) {
+             header("Location: index.php?action=manageAdmins");
+            exit();
+        }
+        
+        $datosAdmin = $this->model->getAdminEspecifico($idAdmin);
+        
+        if (!$datosAdmin) {
+            header("Location: index.php?action=manageAdmins&error=no_encontrado");
+            exit();
+        }
+        
+        $pageTitle = "Editar Administrador";
+        $activePage = 'admins';
+        $viewToLoad = 'app/views/admin/view_editar_admin.php';
+        
+        include_once 'app/views/admin/layout_admin.php'; 
+    }
+    
+    /**
+     * Procesa el formulario de actualización de un admin
+     */
+    public function updateAdmin() {
+        if (isset($_POST["actualizarAdmin"])) {
+            $idAdmin = (int)$_POST['idAdmin'];
+            $nombre = trim($_POST['nombre']);
+            $apellidoPaterno = trim($_POST['apellidoPaterno']);
+            $apellidoMaterno = trim($_POST['apellidoMaterno']);
+            $correo = trim($_POST['correo']);
+            $departamento = trim($_POST['departamento']);
+            $estado = (int)$_POST['estado'];
+            $password = trim($_POST['pass']);
+            $pass_confirm = trim($_POST['pass_confirm']);
+            
+            // Validar que las contraseñas coincidan si se escribió una nueva
+            if (!empty($password) && $password != $pass_confirm) {
+                header("Location: index.php?action=showEditarAdmin&idAdmin=$idAdmin&error=pass_no_coinciden");
+                exit();
+            }
+            
+            // Validar que el nuevo correo no exista (si es diferente al actual)
+            $datosActuales = $this->model->getAdminEspecifico($idAdmin);
+            
+            if ($correo != $datosActuales['correo'] && $this->authModel->verificarCorreoExistente($correo)) {
+                 header("Location: index.php?action=showEditarAdmin&idAdmin=$idAdmin&error=correo_existe");
+                 exit();
+            }
+
+            // Llamar al modelo para actualizar
+            $exito = $this->model->updateDatosAdmin($idAdmin, $nombre, $apellidoPaterno, $apellidoMaterno, $correo, $departamento, $estado, $password);
+
+            if ($exito) {
+                header("Location: index.php?action=manageAdmins&success=admin_actualizado");
+            } else {
+                header("Location: index.php?action=showEditarAdmin&idAdmin=$idAdmin&error=true");
+            }
+            exit();
+        } else {
+            header("Location: index.php?action=manageAdmins");
+            exit();
+        }
+    }
+    
+    /**
+     * Procesa la (des)activación de un admin
+     */
+    public function desactivarAdmin() {
+        if (isset($_GET['idAdmin']) && isset($_GET['estado'])) {
+            $idAdmin = (int)$_GET['idAdmin'];
+            $nuevoEstado = (int)$_GET['estado'];
+            
+            $exito = $this->model->actualizarEstadoAdmin($idAdmin, $nuevoEstado);
+
+            if ($exito) {
+                $mensaje = ($nuevoEstado == 0) ? 'admin_desactivado' : 'admin_activado';
+                header("Location: index.php?action=manageAdmins&success=$mensaje");
+            } else {
+                header("Location: index.php?action=manageAdmins&error=actualizar_estado_fallo");
+            }
+            exit();
+        } else {
+            header("Location: index.php?action=manageAdmins");
+            exit();
+        }
+    }
+
+    // --- ACCIÓN DE REPORTES (RFN-12) ---
+    
+    /**
+     * Muestra la página de reportes dinámicos
+     */
+    public function manageReportes() {
+        
+        // 1. Obtener todos los datos de los reportes
+        $reporteGeneros = $this->model->getReportePacientesPorGenero();
+        $reporteCitas = $this->model->getReporteCitasPorMedico();
+        $reporteActividades = $this->model->getReporteActividadesAsignadas();
+        $reporteRanking = $this->model->getReporteRankingPacientes();
+        
+        // 2. Cargar la Plantilla
+        $pageTitle = "Reportes del Sistema";
+        $activePage = 'reportes';
+        $viewToLoad = 'app/views/admin/view_reportes.php';
+        
+        include_once 'app/views/admin/layout_admin.php';
+    }
 
 }
 ?>
