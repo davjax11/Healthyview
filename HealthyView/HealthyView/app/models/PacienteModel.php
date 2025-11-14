@@ -468,33 +468,37 @@ class PacienteModel {
     
     // --- FUNCIONES DE FORO (RFN-13) ---
 
-    /**
-     * Obtiene todas las publicaciones del foro, uniendo el nombre del paciente,
-     * el conteo de reacciones y si el usuario actual ya reaccionó.
+   /**
+     * Obtiene todas las publicaciones del foro (VERSIÓN OPTIMIZADA Y CORREGIDA).
+     * Usa JOIN y GROUP BY para obtener todos los datos en una sola consulta.
      */
     public function getPublicacionesForo($idPaciente) {
-        // Este es el ID del paciente que está VIENDO la página
         $idUsuarioActual = $idPaciente; 
         
+        // --- Explicación de la Consulta ---
+        // 1. LEFT JOIN con 'paciente' para obtener el nombre.
+        // 2. LEFT JOIN con 'foroReaccion' (fr) para traer todas las reacciones.
+        // 3. COUNT(DISTINCT fr.idReaccion) cuenta el total de "likes" de esa publicación.
+        // 4. MAX(CASE...): Es un truco de SQL. Agrupa por publicación y, si CUALQUIERA
+        //    de las reacciones pertenece al usuario actual (?), marca 1 (true), si no, 0 (false).
+        // --- Fin de la Explicación ---
+
+        // Consulta SQL limpia sin comentarios internos
         $sql = "SELECT 
-                    f.idPublicacion,
-                    f.titulo,
-                    f.contenido,
-                    f.imagenURL,
-                    f.fechaPublicacion,
+                    f.idPublicacion, f.titulo, f.contenido, f.imagenURL, f.fechaPublicacion,
                     CONCAT(p.nombre, ' ', p.apellidoPaterno) as pacienteNombre,
-                    
-                    -- Contar el total de reacciones
-                    (SELECT COUNT(*) FROM foroReaccion fr WHERE fr.idPublicacion = f.idPublicacion) as totalReacciones,
-                    
-                    -- Verificar si el usuario actual ya reaccionó (1 si sí, 0 si no)
-                    (SELECT COUNT(*) FROM foroReaccion fr 
-                     WHERE fr.idPublicacion = f.idPublicacion AND fr.idPaciente = ?) as usuarioYaReacciono
+                    COUNT(DISTINCT fr.idReaccion) as totalReacciones,
+                    MAX(CASE WHEN fr.idPaciente = ? THEN 1 ELSE 0 END) as usuarioYaReacciono
                     
                 FROM foro f
                 LEFT JOIN paciente p ON f.idPaciente = p.idPaciente
+                LEFT JOIN foroReaccion fr ON f.idPublicacion = fr.idPublicacion
+                
+                WHERE f.idPaciente IS NOT NULL
+                
+                GROUP BY f.idPublicacion
                 ORDER BY f.fechaPublicacion DESC
-                LIMIT 50"; // Limitamos a las 50 más recientes
+                LIMIT 50";
 
         try {
             $statement = $this->connection->prepare($sql);
@@ -504,6 +508,7 @@ class PacienteModel {
             $statement->close();
             return $result->fetch_all(MYSQLI_ASSOC);
         } catch (mysqli_sql_exception $e) {
+            // Opcional: loggear el error $e->getMessage()
             return [];
         }
     }

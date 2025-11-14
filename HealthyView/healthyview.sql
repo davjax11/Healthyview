@@ -330,3 +330,22 @@ VALUES
     (1, '¡Mi primer semana!', 'Terminé la primera semana del plan de caminata. ¡Me siento con más energía!', 5),
     (3, 'Receta de batido de proteína', 'Les comparto mi receta de batido post-entrenamiento: Plátano, avena, 1 scoop de proteína...', 12),
     (2, 'Controlando el estrés', 'Las sesiones de meditación (Actividad 3) me han ayudado mucho con la ansiedad. ¿Alguien más las prueba?', 8);
+    
+    
+USE healthyview;
+ALTER TABLE foro
+ADD COLUMN imagenURL VARCHAR(255) NULL DEFAULT NULL AFTER contenido;
+
+
+CREATE TABLE foroReaccion (
+    idReaccion INT AUTO_INCREMENT PRIMARY KEY,
+    idPublicacion INT NOT NULL,
+    idPaciente INT NOT NULL,
+    
+    FOREIGN KEY (idPublicacion) REFERENCES foro(idPublicacion) ON DELETE CASCADE,
+    FOREIGN KEY (idPaciente) REFERENCES paciente(idPaciente) ON DELETE CASCADE,
+    
+    -- Creamos una llave única para asegurar que un paciente solo puede
+    -- reaccionar una vez por publicación
+    UNIQUE KEY uk_reaccion_unica (idPublicacion, idPaciente)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
