@@ -1,0 +1,10 @@
+/* Estilo para centrar los formularios de login/registro */
+body.auth-bg {
+    background-color: #f8f9fa; /* Un fondo gris claro */
+}
+.auth-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
