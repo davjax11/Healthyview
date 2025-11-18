@@ -18,15 +18,17 @@ class MedicoController {
     public function dashboard() {
         $idMedico = $_SESSION['usuario_id'];
         
-        // 1. Obtener los datos del dashboard (citas de hoy)
+        // 1. Obtener las citas de hoy (como ya lo tenías)
         $citasHoy = $this->model->getDashboardData($idMedico);
         
-        // 2. Definir la página activa y la vista a cargar
-        $pageTitle = "Inicio";
-        $activePage = 'inicio'; // <--- Página activa es "inicio"
-        $viewToLoad = 'app/views/medico/view_medico_inicio.php'; // <--- Carga la nueva vista
+        // 2. Obtener estadísticas generales (NUEVO)
+        $stats = $this->model->getEstadisticasMedico($idMedico);
         
-        // 3. Cargar la plantilla principal del médico
+        // 3. Cargar la vista
+        $pageTitle = "Panel Médico";
+        $activePage = 'inicio'; 
+        $viewToLoad = 'app/views/medico/view_medico_inicio.php'; 
+        
         include_once 'app/views/medico/layout_medico.php';
     }
 

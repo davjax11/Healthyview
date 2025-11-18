@@ -597,5 +597,28 @@ class AdminModel {
         $result = $this->connection->query($sql);
         return $result->fetch_all(MYSQLI_ASSOC);
     }
+
+    // --- FUNCIONES PARA DASHBOARD ADMIN ---
+    public function getEstadisticasGenerales() {
+        $stats = [];
+        
+        // Contar Pacientes
+        $res = $this->connection->query("SELECT COUNT(*) as c FROM paciente WHERE estado=1");
+        $stats['pacientes'] = $res->fetch_assoc()['c'];
+        
+        // Contar Médicos
+        $res = $this->connection->query("SELECT COUNT(*) as c FROM medico WHERE estado=1");
+        $stats['medicos'] = $res->fetch_assoc()['c'];
+        
+        // Contar Citas Totales
+        $res = $this->connection->query("SELECT COUNT(*) as c FROM cita");
+        $stats['citas'] = $res->fetch_assoc()['c'];
+        
+        // Contar Publicaciones en Foro
+        $res = $this->connection->query("SELECT COUNT(*) as c FROM foro");
+        $stats['posts'] = $res->fetch_assoc()['c'];
+        
+        return $stats;
+    }
 }
 ?>

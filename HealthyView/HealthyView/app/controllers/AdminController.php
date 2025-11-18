@@ -23,12 +23,15 @@ class AdminController {
     }
 
     /**
-     * Muestra el dashboard principal del Administrador
+     * Muestra el dashboard principal del Administrador con estadísticas.
      */
     public function dashboard() {
-        $pageTitle = "Dashboard";
+        // Obtener estadísticas
+        $stats = $this->model->getEstadisticasGenerales();
+        
+        $pageTitle = "Dashboard General";
         $activePage = 'dashboard';
-        $viewToLoad = 'app/views/view_dashboard_content_admin.php'; // Creamos esta vista
+        $viewToLoad = 'app/views/admin/view_dashboard_content_admin.php'; // Nombre nuevo sugerido
         
         include_once 'app/views/admin/layout_admin.php';
     }

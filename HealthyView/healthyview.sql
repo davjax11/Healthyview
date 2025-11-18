@@ -349,3 +349,5 @@ CREATE TABLE foroReaccion (
     -- reaccionar una vez por publicación
     UNIQUE KEY uk_reaccion_unica (idPublicacion, idPaciente)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE foro DROP COLUMN reacciones;

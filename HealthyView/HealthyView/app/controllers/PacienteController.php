@@ -19,10 +19,16 @@ class PacienteController {
 
     // --- ACCIONES DE PACIENTE (PRIVADAS) ---
 
+    
     /**
-     * Muestra el dashboard principal del paciente (la sección "Inicio")
+     * Muestra el dashboard principal del paciente con resumen de datos.
      */
     public function dashboard() {
+        $idPaciente = $_SESSION['usuario_id'];
+        
+        // Obtener resumen de datos
+        $resumen = $this->model->getResumenDashboard($idPaciente);
+        
         $activePage = 'inicio';
         $viewToLoad = 'app/views/paciente/view_paciente_inicio.php';
         include_once 'app/views/paciente/layout_paciente.php';
@@ -515,6 +521,7 @@ class PacienteController {
         header("Location: index.php?action=verForo");
         exit();
     }
+    
     
 }
 ?>

@@ -426,5 +426,36 @@ class MedicoModel {
         }
     }
     // --- FIN DE NUEVAS FUNCIONES ---
+
+    // --- FUNCIONES PARA DASHBOARD (ESTADÍSTICAS) ---
+    public function getEstadisticasMedico($idMedico) {
+        $stats = [];
+        
+        // 1. Total de Pacientes únicos atendidos (basado en citas)
+        $sqlPacientes = "SELECT COUNT(DISTINCT idPaciente) as total FROM cita WHERE idMedico = ?";
+        $stmt = $this->connection->prepare($sqlPacientes);
+        $stmt->bind_param("i", $idMedico);
+        $stmt->execute();
+        $stats['totalPacientes'] = $stmt->get_result()->fetch_assoc()['total'];
+        $stmt->close();
+
+        // 2. Citas Pendientes (Futuras)
+        $sqlCitas = "SELECT COUNT(*) as total FROM cita WHERE idMedico = ? AND estado = 'Programada' AND fechaHora >= NOW()";
+        $stmt = $this->connection->prepare($sqlCitas);
+        $stmt->bind_param("i", $idMedico);
+        $stmt->execute();
+        $stats['citasPendientes'] = $stmt->get_result()->fetch_assoc()['total'];
+        $stmt->close();
+        
+        // 3. Recetas Emitidas en el último mes
+        $sqlRecetas = "SELECT COUNT(*) as total FROM receta WHERE idMedico = ? AND fechaEmision >= DATE_SUB(NOW(), INTERVAL 1 MONTH)";
+        $stmt = $this->connection->prepare($sqlRecetas);
+        $stmt->bind_param("i", $idMedico);
+        $stmt->execute();
+        $stats['recetasMes'] = $stmt->get_result()->fetch_assoc()['total'];
+        $stmt->close();
+
+        return $stats;
+    }
 }
 ?>

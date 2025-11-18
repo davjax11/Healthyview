@@ -557,5 +557,59 @@ class PacienteModel {
             return false;
         }
     }
+
+    // --- FUNCIONES PARA EL DASHBOARD (RESUMEN) ---
+    public function getResumenDashboard($idPaciente) {
+        $resumen = [];
+
+        // 1. Próxima Cita
+        $sqlCita = "SELECT fechaHora, motivo, 
+                    CONCAT(m.nombre, ' ', m.apellidoPaterno) as medico
+                    FROM cita c
+                    JOIN medico m ON c.idMedico = m.idMedico
+                    WHERE c.idPaciente = ? AND c.fechaHora >= NOW() AND c.estado = 'Programada'
+                    ORDER BY c.fechaHora ASC LIMIT 1";
+        
+        try {
+            $stmt = $this->connection->prepare($sqlCita);
+            $stmt->bind_param("i", $idPaciente);
+            $stmt->execute();
+            $resumen['proximaCita'] = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+        } catch (Exception $e) {
+            $resumen['proximaCita'] = null;
+        }
+
+        // 2. Último Peso registrado
+        $sqlPeso = "SELECT peso, imc, nivelBienestar FROM seguimiento 
+                    WHERE idPaciente = ? ORDER BY fechaRegistro DESC LIMIT 1";
+        
+        try {
+            $stmt = $this->connection->prepare($sqlPeso);
+            $stmt->bind_param("i", $idPaciente);
+            $stmt->execute();
+            $resumen['ultimoSeguimiento'] = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+        } catch (Exception $e) {
+            $resumen['ultimoSeguimiento'] = null;
+        }
+
+        // 3. Conteo de Actividades Activas
+        $sqlAct = "SELECT COUNT(*) as total FROM actividadPaciente 
+                   WHERE idPaciente = ? AND estado = 'Activa'";
+        
+        try {
+            $stmt = $this->connection->prepare($sqlAct);
+            $stmt->bind_param("i", $idPaciente);
+            $stmt->execute();
+            $row = $stmt->get_result()->fetch_assoc();
+            $resumen['actividadesPendientes'] = $row['total'];
+            $stmt->close();
+        } catch (Exception $e) {
+            $resumen['actividadesPendientes'] = 0;
+        }
+
+        return $resumen;
+    }
 }
 ?>
